@@ -4,5 +4,7 @@
     <string name="app_name">BlueToothTest</string>
     <string name="hello_world">Hello world!</string>
     <string name="action_settings">Settings</string>
-
+	<string name="bt_disconnect">未连接，点击开始连接！</string>
+	<string name="bt_connecting">正在连接中，请稍后！</string>
+	<string name="bt_conneced">连接成功！</string>
 </resources>

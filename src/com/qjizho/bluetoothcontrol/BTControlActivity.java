@@ -1,12 +1,8 @@
 package com.qjizho.bluetoothcontrol;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.Set;
 import java.util.UUID;
-
-import com.example.bluetoothtest.R;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
@@ -18,27 +14,36 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
-import android.widget.Button;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
+import android.view.animation.LinearInterpolator;
+import android.widget.ImageView;
+import android.widget.TextView;
+
+import com.example.bluetoothcontrol.R;
 
 public class BTControlActivity extends Activity implements OnClickListener{
 	BluetoothAdapter mBluetoothAdapter;
 	private ConnectedThread mConnectedThread;
 	private ConnectAsyncTask task;
+	ImageView img;
+	private TextView txt;
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
-		Button btn = (Button) findViewById(R.id.btn);
-		btn.setOnClickListener(this);
-		Button btn2 = (Button) findViewById(R.id.btn2);
-		btn2.setOnClickListener(this);
+		img = (ImageView) findViewById(R.id.img);
+		img.setOnClickListener(this);
+		txt = (TextView) findViewById(R.id.txt);
+//		Button btn2 = (Button) findViewById(R.id.btn2);
+//		btn2.setOnClickListener(this);
 		mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 	}
 
 	@Override
 	public void onClick(View v) {
 		switch(v.getId()){
-		case R.id.btn:
+		case R.id.img:
 			if (mBluetoothAdapter != null) {
 				if (!mBluetoothAdapter.isEnabled()) {
 				    Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
@@ -51,25 +56,33 @@ public class BTControlActivity extends Activity implements OnClickListener{
 					    	Log.d("qiqi", device.getName() + "=====" + device.getAddress());
 					    	task = new ConnectAsyncTask(device);
 					    	task.execute();
+					    	Animation rotateAnim = AnimationUtils.loadAnimation(this, R.anim.rotate);
+					    	LinearInterpolator lin = new LinearInterpolator();
+					    	rotateAnim.setInterpolator(lin);
+					    	if(rotateAnim != null){
+					    		img.startAnimation(rotateAnim);
+					    	}
+					    	txt.setText(R.string.bt_connecting);
 					    }
 					}
 				}
 			}else{
 			}
 			break;
-		case R.id.btn2:
-			Log.d("qiqi", "send hello.");
-			if(null != mConnectedThread){
-				Log.d("qiqi", "send hello.");
-				mConnectedThread.write(new String("hello").getBytes());
-			}
-			break;
+//		case R.id.btn2:
+//			Log.d("qiqi", "send hello.");
+//			if(null != mConnectedThread){
+//				Log.d("qiqi", "send hello.");
+//				mConnectedThread.write(new String("hello").getBytes());
+//			}
+//			break;
 		}
 	}
 	@Override
 	protected void onDestroy() {
 		super.onDestroy();
-		task.cancelSocket();
+		if(task != null)
+			task.cancelSocket();
 	}
 	private class ConnectAsyncTask extends AsyncTask<Void, Integer, Boolean>{
 		private BluetoothSocket mmSocket;
