@@ -11,6 +11,8 @@ import android.bluetooth.BluetoothSocket;
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.PowerManager;
+import android.os.PowerManager.WakeLock;
 import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -28,6 +30,9 @@ public class BTControlActivity extends Activity implements OnClickListener{
 	private ConnectAsyncTask task;
 	ImageView img;
 	private TextView txt;
+	PowerManager pManager;
+	WakeLock mWakeLock;
+	private boolean connect_state = false;
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -39,34 +44,57 @@ public class BTControlActivity extends Activity implements OnClickListener{
 //		btn2.setOnClickListener(this);
 		mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 	}
+	@Override
+	protected void onResume() {
+		super.onResume();
+		pManager = ((PowerManager) getSystemService(POWER_SERVICE));  
+        mWakeLock = pManager.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK  
+                | PowerManager.ON_AFTER_RELEASE, "1");  
+        mWakeLock.acquire(); 
+	}
 
+	@Override
+	protected void onPause() {
+		super.onPause();
+		if(null != mWakeLock){  
+            mWakeLock.release();  
+        }  
+	}
 	@Override
 	public void onClick(View v) {
 		switch(v.getId()){
 		case R.id.img:
-			if (mBluetoothAdapter != null) {
-				if (!mBluetoothAdapter.isEnabled()) {
-				    Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-				    startActivityForResult(enableBtIntent, 1);
-				}else{
-					Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
-					Log.d("qiqi", "pairedDevices.size():" + pairedDevices.size());
-					if (pairedDevices.size() > 0) {
-					    for (BluetoothDevice device : pairedDevices) {
-					    	Log.d("qiqi", device.getName() + "=====" + device.getAddress());
-					    	task = new ConnectAsyncTask(device);
-					    	task.execute();
-					    	Animation rotateAnim = AnimationUtils.loadAnimation(this, R.anim.rotate);
-					    	LinearInterpolator lin = new LinearInterpolator();
-					    	rotateAnim.setInterpolator(lin);
-					    	if(rotateAnim != null){
-					    		img.startAnimation(rotateAnim);
-					    	}
-					    	txt.setText(R.string.bt_connecting);
-					    }
-					}
-				}
+			if(connect_state){
+				img.clearAnimation();
+				img.setImageResource(R.drawable.bt_connecting);
+				txt.setText(R.string.bt_disconnect);
+				connect_state = false;
 			}else{
+				if (mBluetoothAdapter != null) {
+					if (!mBluetoothAdapter.isEnabled()) {
+					    Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+					    startActivityForResult(enableBtIntent, 1);
+					}else{
+						Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
+						Log.d("qiqi", "pairedDevices.size():" + pairedDevices.size());
+						if (pairedDevices.size() > 0) {
+						    for (BluetoothDevice device : pairedDevices) {
+						    	Log.d("qiqi", device.getName() + "=====" + device.getAddress());
+						    	task = new ConnectAsyncTask(device);
+						    	task.execute();
+						    	Animation rotateAnim = AnimationUtils.loadAnimation(this, R.anim.rotate);
+						    	LinearInterpolator lin = new LinearInterpolator();
+						    	rotateAnim.setInterpolator(lin);
+						    	if(rotateAnim != null){
+						    		img.startAnimation(rotateAnim);
+						    	}
+						    	txt.setText(R.string.bt_connecting);
+						    }
+						}
+					}
+				}else{
+				}
+				connect_state = true;
 			}
 			break;
 //		case R.id.btn2:
@@ -104,8 +132,18 @@ public class BTControlActivity extends Activity implements OnClickListener{
 		@Override
 		protected void onPostExecute(Boolean result) {
 			super.onPostExecute(result);
-			Log.d("qiqi", "mmSocket connected successfully.");
-			mConnectedThread = new ConnectedThread(mmSocket);
+			if(result){
+				mConnectedThread = new ConnectedThread(mmSocket);
+				img.clearAnimation();
+				img.setImageResource(R.drawable.bt_connected);
+				txt.setText(R.string.bt_conneced);
+				connect_state = true;
+			}else{
+				img.clearAnimation();
+				img.setImageResource(R.drawable.bt_connecting);
+				txt.setText(R.string.bt_connect_wrong);
+				connect_state = false;
+			}
 		}
 		public void cancelSocket(){
 			try {
@@ -119,13 +157,15 @@ public class BTControlActivity extends Activity implements OnClickListener{
 	        try {
 	        	Log.d("qiqi", "start to connect mmSocket.");
 	            mmSocket.connect();
+	        	Log.d("qiqi", "mmSocket connected successfully.");
+	        	return true;
 	        } catch (IOException connectException) {
+	        	Log.d("qiqi", "socket connect failed");
 	            try {
 	                mmSocket.close();
 	            } catch (IOException closeException) { }
 	            return false;
 	        }
-			return true;
 		}
 		
 	}

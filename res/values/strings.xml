@@ -7,4 +7,5 @@
 	<string name="bt_disconnect">未连接，点击开始连接！</string>
 	<string name="bt_connecting">正在连接中，请稍后！</string>
 	<string name="bt_conneced">连接成功！</string>
+	<string name="bt_connect_wrong">连接失败，请让对方先开启连接等待！</string>
 </resources>
