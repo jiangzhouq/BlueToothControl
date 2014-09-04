@@ -23,8 +23,10 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
+import android.view.View.OnTouchListener;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 import android.view.animation.LinearInterpolator;
@@ -38,7 +40,6 @@ public class BTControlActivity extends Activity implements OnClickListener{
 	private ConnectedThread mConnectedThread;
 	private ConnectAsyncTask task;
 	ImageView img;
-	private ImageView blueState;
 	private View mDecorView;
 	private TextView txt;
 	PowerManager pManager;
@@ -50,32 +51,17 @@ public class BTControlActivity extends Activity implements OnClickListener{
 		setContentView(R.layout.activity_main);
 		img = (ImageView) findViewById(R.id.img);
 		img.setOnClickListener(this);
-		blueState = (ImageView) findViewById(R.id.blue_state);
-		blueState.setOnClickListener(this);
 		txt = (TextView) findViewById(R.id.txt);
 		mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 		SensorManager sm = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
 		int sensorType = Sensor.TYPE_ACCELEROMETER;
-		sm.registerListener(myAccelerometerListener,sm.getDefaultSensor(sensorType),SensorManager.SENSOR_DELAY_NORMAL);
+		sm.registerListener(myAccelerometerListener,sm.getDefaultSensor(sensorType),SensorManager.SENSOR_DELAY_GAME);
 		
 		mDecorView = getWindow().getDecorView();
 		hideSystemUI();
 	}
-	private void changeScreenState(int state){
-		switch(state){
-		case 0:
-			img.setVisibility(View.GONE);
-			txt.setVisibility(View.GONE);
-			blueState.setVisibility(View.VISIBLE);
-			break;
-		case 1:
-			img.setVisibility(View.VISIBLE);
-			txt.setVisibility(View.VISIBLE);
-			blueState.setVisibility(View.INVISIBLE);
-			break;
-		}
-	}
 	private int mSensorCount = 0;
+	private long pTime = 0;
 	final SensorEventListener myAccelerometerListener = new SensorEventListener(){  
         
         //复写onSensorChanged方法  
@@ -87,54 +73,22 @@ public class BTControlActivity extends Activity implements OnClickListener{
                 float Z_vertical = sensorEvent.values[2];  
 //                if(X_lateral > 5)
 //                	Log.d("qiqi","\n heading "+X_lateral); 
-                if(getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE  ){
-                	if(Y_longitudinal > 3 ){
-                		if(X_lateral > 0){
-                			mSensorCount ++;
-                			if(mSensorCount == 10){
-                				mSensorCount = 0;
-                				if(null != mConnectedThread){
-                					Log.d("qiqi", "send hello.");
+                	int abc = getMoveState(X_lateral, 5, 150);
+                	if(abc != 0){
+                		if(System.currentTimeMillis() - pTime > 1000){
+                			pTime = System.currentTimeMillis();
+                			if(mConnectedThread != null)
+                				if(abc == 1){
+                					mConnectedThread.write(new String("left").getBytes());
+                				}else if (abc == -1){
                 					mConnectedThread.write(new String("right").getBytes());
                 				}
-                			}
-                		}else if(X_lateral < 0){
-                			mSensorCount ++;
-                			if(mSensorCount == 10){
-                				mSensorCount = 0;
-                				if(null != mConnectedThread){
-                					Log.d("qiqi", "send hello.");
-                					mConnectedThread.write(new String("left").getBytes());
-                				}
-                			}
-                		}
-                	}else if (Y_longitudinal < -3){
-                		if(X_lateral > 0){
-                			mSensorCount ++;
-                			if(mSensorCount == 10){
-                				mSensorCount = 0;
-                				if(null != mConnectedThread){
-                					Log.d("qiqi", "send hello.");
-                					mConnectedThread.write(new String("left").getBytes());
-                				}
-                			}
-                		}else{
-                			mSensorCount ++;
-                			if(mSensorCount == 10){
-                				mSensorCount = 0;
-                				if(null != mConnectedThread){
-                					Log.d("qiqi", "send hello.");
-                					mConnectedThread.write(new String("right").getBytes());
-                				}
-                			}
                 		}
                 	}
-                }
             }  
         }  
         //复写onAccuracyChanged方法  
         public void onAccuracyChanged(Sensor sensor , int accuracy){  
-            Log.d("qiqi", "onAccuracyChanged");  
         }  
     };  
 	@Override
@@ -169,10 +123,8 @@ public class BTControlActivity extends Activity implements OnClickListener{
 					    startActivityForResult(enableBtIntent, 1);
 					}else{
 						Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
-						Log.d("qiqi", "pairedDevices.size():" + pairedDevices.size());
 						if (pairedDevices.size() > 0) {
 						    for (BluetoothDevice device : pairedDevices) {
-						    	Log.d("qiqi", device.getName() + "=====" + device.getAddress());
 						    	task = new ConnectAsyncTask(device);
 						    	task.execute();
 						    	Animation rotateAnim = AnimationUtils.loadAnimation(this, R.anim.rotate);
@@ -189,9 +141,6 @@ public class BTControlActivity extends Activity implements OnClickListener{
 				}
 				connect_state = true;
 			}
-			break;
-		case R.id.blue_state:
-			changeScreenState(1);
 			break;
 //		case R.id.btn2:
 //			Log.d("qiqi", "send hello.");
@@ -216,7 +165,6 @@ public class BTControlActivity extends Activity implements OnClickListener{
 			} catch (IOException e) {
 			}
 			mmSocket = tmp;
-			Log.d("qiqi", "create mmSocket.");
 		}
 		@Override
 		protected void onPreExecute() {
@@ -231,7 +179,6 @@ public class BTControlActivity extends Activity implements OnClickListener{
 				img.setImageResource(R.drawable.bt_connected);
 				txt.setText(R.string.bt_conneced);
 				connect_state = true;
-				changeScreenState(0);
 			}else{
 				img.clearAnimation();
 				img.setImageResource(R.drawable.bt_connecting);
@@ -249,12 +196,9 @@ public class BTControlActivity extends Activity implements OnClickListener{
 		protected Boolean doInBackground(Void... params) {
 	        mBluetoothAdapter.cancelDiscovery();
 	        try {
-	        	Log.d("qiqi", "start to connect mmSocket.");
 	            mmSocket.connect();
-	        	Log.d("qiqi", "mmSocket connected successfully.");
 	        	return true;
 	        } catch (IOException connectException) {
-	        	Log.d("qiqi", "socket connect failed");
 	            try {
 	                mmSocket.close();
 	            } catch (IOException closeException) { }
@@ -287,5 +231,107 @@ public class BTControlActivity extends Activity implements OnClickListener{
 	            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION // hide nav bar
 	            | View.SYSTEM_UI_FLAG_FULLSCREEN // hide status bar
 	            | View.SYSTEM_UI_FLAG_IMMERSIVE);
+	}
+	private static int TOTAL_ARRAY = 100;
+	private static int TOTAL_SUM = 10;
+	private static int[] m_srcArray = new int[TOTAL_ARRAY];
+	private static int m_srcSide = 0;
+	private static int m_side = 0;
+	private static int m_count = 0;
+	private static int ret;
+	private static int[] m_difArray = new int[TOTAL_ARRAY];
+	private static int[] m_sumArray = new int[100];
+	private int getMoveState(float src, int blank, int threshold){
+	        /***************************save**********************************/
+	        int x;
+	        int site;
+	        x = ((int)(src*100000))/100000;
+//	        Log.d("qiqi", "x:" + x);
+	        m_srcArray[m_srcSide] = x;
+	        
+	        m_side = m_srcSide;
+	        m_srcSide++;
+	        if (m_srcSide >= 100)
+	        {
+	                m_srcSide = 0;
+	        }
+	        m_count++;
+	        if (m_count > 1000000)
+	        {
+	                m_count = TOTAL_ARRAY;
+	        }
+	        /*************************************************************/
+	 
+	 
+	        /***************************dif**********************************/
+	       
+	        if (m_count < blank)
+	        {
+	                return 0;
+	        }
+	 
+	        site = m_side-blank;
+	        if (site < 0)
+	        {
+	                site = TOTAL_ARRAY+site;
+	        }
+	 
+	        m_difArray[m_side] = x - m_srcArray[site];
+	        /*************************************************************/
+	 
+	        
+	 
+	        /***************************sumDif**********************************/
+	        int sum;
+	        int i;
+	 
+	        if (m_count < TOTAL_SUM)
+	        {
+	                return 0;
+	        }
+	 
+	        site = m_side-TOTAL_SUM;
+	 
+	        m_sumArray[m_side] = 0;
+	        if (site < 0)
+	        {
+	                for (i = 0;i <= m_side;i++)
+	                {
+	                        m_sumArray[m_side]+=m_difArray[i];
+	                }
+	                for (i = TOTAL_ARRAY-1;i > TOTAL_ARRAY+site;i--)
+	                {
+	                        m_sumArray[m_side]+=m_difArray[i];
+	                }
+	        }
+	        else
+	        {
+	                for (i = site+1;i <= m_side;i++)
+	                {
+	                        m_sumArray[m_side]+=m_difArray[i];
+	                }
+	        }
+	        /*************************************************************/
+	     
+	        site = m_side-blank;
+	        if (site < 0)
+	        {
+	                site = TOTAL_ARRAY+site;
+	        }
+	        int a = m_sumArray[m_side] - m_sumArray[site];
+//			Log.d("qiqi", "a:" + a);
+	        if (m_sumArray[m_side] - m_sumArray[site] > threshold)
+	        {
+	                ret = 1;
+	        }
+	        else if (m_sumArray[m_side] - m_sumArray[site] < -threshold)
+	        {
+	                ret = -1;
+	        }
+	        else
+	        {
+	                ret = 0;
+	        }
+	        return ret;
 	}
 }

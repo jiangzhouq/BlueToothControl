@@ -4,14 +4,6 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#FFFFF0">
-    <ImageView 
-        android:id="@+id/blue_state"
-        android:layout_width="30dp"
-        android:layout_height="30dp"
-        android:layout_alignParentTop="true"
-        android:layout_alignParentRight="true"
-        android:src="@drawable/bt_connecting"
-        android:visibility="invisible"/>
    <ImageView
         android:id="@+id/img"
         android:layout_width="wrap_content"
